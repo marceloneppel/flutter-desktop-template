@@ -12,12 +12,14 @@ import (
 
 	"encoding/json"
 
+	"runtime"
+
+	"errors"
+
 	"github.com/go-gl/glfw/v3.2/glfw"
 )
 
-const assetPath = "build/flutter_assets"
 const configurationFilename = "config.json"
-const icuDataPath = "bin/cache/artifacts/engine/linux-x64/icudtl.dat"
 
 type Configuration struct {
 	FlutterPath        string
@@ -43,6 +45,30 @@ func getConfig() (Configuration, error) {
 			return configuration, nil
 		}
 	}
+}
+
+func getPaths() (string, string, error) {
+	var assetPath string
+	var icuDataPath string
+	var err error
+	switch runtime.GOOS {
+	case "darwin":
+		assetPath = "build/flutter_assets"
+		icuDataPath = "bin/cache/artifacts/engine/darwin-x64/icudtl.dat"
+		break
+	case "linux":
+		assetPath = "build/flutter_assets"
+		icuDataPath = "bin/cache/artifacts/engine/linux-x64/icudtl.dat"
+		break
+	case "windows":
+		assetPath = "build\\flutter_assets"
+		icuDataPath = "bin\\cache\\artifacts\\engine\\windows-x64\\icudtl.dat"
+		break
+	default:
+		err = errors.New("invalid operating system")
+		break
+	}
+	return assetPath, icuDataPath, err
 }
 
 func handleError(err error) {
@@ -77,18 +103,27 @@ func main() {
 				}
 			}
 		}
-		var options = []gutter.Option{
-			gutter.OptionAssetPath(filepath.Join(configuration.FlutterProjectPath, assetPath)),
-			gutter.OptionICUDataPath(filepath.Join(configuration.FlutterPath, icuDataPath)),
-			gutter.OptionWindowInitializer(setIcon),
-			gutter.OptionWindowDimension(configuration.ScreenWidth, configuration.ScreenHeight),
-			gutter.OptionWindowInitializer(setIcon),
-			gutter.OptionPixelRatio(1.2),
-			gutter.OptionVMArguments([]string{"--dart-non-checked-mode", "--observatory-port=50300"}),
-		}
-		err = gutter.Run(options...)
+		var (
+			assetPath   string
+			icuDataPath string
+		)
+		assetPath, icuDataPath, err = getPaths()
 		if err != nil {
 			handleError(err)
+		} else {
+			var options = []gutter.Option{
+				gutter.OptionAssetPath(filepath.Join(configuration.FlutterProjectPath, assetPath)),
+				gutter.OptionICUDataPath(filepath.Join(configuration.FlutterPath, icuDataPath)),
+				gutter.OptionWindowInitializer(setIcon),
+				gutter.OptionWindowDimension(configuration.ScreenWidth, configuration.ScreenHeight),
+				gutter.OptionWindowInitializer(setIcon),
+				gutter.OptionPixelRatio(1.9),
+				gutter.OptionVmArguments([]string{"--dart-non-checked-mode", "--observatory-port=50300"}),
+			}
+			err = gutter.Run(options...)
+			if err != nil {
+				handleError(err)
+			}
 		}
 	}
 }
