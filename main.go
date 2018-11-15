@@ -21,7 +21,7 @@ import (
 
 const configurationFilename = "config.json"
 
-type Configuration struct {
+type configuration struct {
 	FlutterPath        string
 	FlutterProjectPath string
 	IconPath           string
@@ -29,22 +29,56 @@ type Configuration struct {
 	ScreenWidth        int
 }
 
-func getConfig() (Configuration, error) {
-	var configuration Configuration
+func buildAssetPath(flutterProjectPath string, assetPath string) (string, error) {
+	if flutterProjectPath == "" {
+		var (
+			path string
+			err error
+		)
+		path, err = os.Executable()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(filepath.Dir(path), "flutter_assets"), nil
+	}
+	return filepath.Join(flutterProjectPath, assetPath), nil
+}
+
+func buildICUDataPath(flutterPath string, icuDataPath string) (string, error) {
+	if flutterPath == "" {
+		var (
+			path string
+			err error
+		)
+		path, err = os.Executable()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(filepath.Dir(path), "icudtl.dat"), nil
+	}
+	return filepath.Join(flutterPath, icuDataPath), nil
+}
+
+func getConfig() (configuration, error) {
+	var config configuration
 	var err error
 	var file *os.File
-	file, err = os.Open(configurationFilename)
+	var path string
+	path, err = os.Executable()
 	if err != nil {
-		return configuration, err
-	} else {
-		var decoder = json.NewDecoder(file)
-		err = decoder.Decode(&configuration)
-		if err != nil {
-			return configuration, err
-		} else {
-			return configuration, nil
-		}
+		return config, err
 	}
+	var configFilename = filepath.Join(filepath.Dir(path), configurationFilename)
+	file, err = os.Open(configFilename)
+	if err != nil {
+		return config, err
+	}
+	var decoder = json.NewDecoder(file)
+	err = decoder.Decode(&config)
+	if err != nil {
+		return config, err
+	}
+	return config, nil
 }
 
 func getPaths() (string, string, error) {
@@ -77,10 +111,10 @@ func handleError(err error) {
 
 func main() {
 	var (
-		configuration Configuration
-		err           error
+		config configuration
+		err    error
 	)
-	configuration, err = getConfig()
+	config, err = getConfig()
 	if err != nil {
 		handleError(err)
 	} else {
@@ -89,19 +123,26 @@ func main() {
 				imgFile *os.File
 				err     error
 			)
-			imgFile, err = os.Open(configuration.IconPath)
-			if err != nil {
-				return err
-			} else {
-				var img image.Image
-				img, _, err = image.Decode(imgFile)
+			var iconPath = config.IconPath
+			if string(iconPath[0]) != "/" {
+				var path string
+				path, err = os.Executable()
 				if err != nil {
 					return err
-				} else {
-					window.SetIcon([]image.Image{img})
-					return nil
 				}
+				iconPath = filepath.Join(filepath.Dir(path), iconPath)
 			}
+			imgFile, err = os.Open(iconPath)
+			if err != nil {
+				return err
+			}
+			var img image.Image
+			img, _, err = image.Decode(imgFile)
+			if err != nil {
+				return err
+			}
+			window.SetIcon([]image.Image{img})
+			return nil
 		}
 		var (
 			assetPath   string
@@ -111,18 +152,30 @@ func main() {
 		if err != nil {
 			handleError(err)
 		} else {
-			var options = []gutter.Option{
-				gutter.OptionAssetPath(filepath.Join(configuration.FlutterProjectPath, assetPath)),
-				gutter.OptionICUDataPath(filepath.Join(configuration.FlutterPath, icuDataPath)),
-				gutter.OptionWindowInitializer(setIcon),
-				gutter.OptionWindowDimension(configuration.ScreenWidth, configuration.ScreenHeight),
-				gutter.OptionWindowInitializer(setIcon),
-				gutter.OptionPixelRatio(1.9),
-				gutter.OptionVmArguments([]string{"--dart-non-checked-mode", "--observatory-port=50300"}),
-			}
-			err = gutter.Run(options...)
+			var builtAssetPath string
+			builtAssetPath, err = buildAssetPath(config.FlutterProjectPath, assetPath)
 			if err != nil {
 				handleError(err)
+			} else {
+				var builtICUDataPath string
+				builtICUDataPath, err = buildICUDataPath(config.FlutterPath, icuDataPath)
+				if err != nil {
+					handleError(err)
+				} else {
+					var options = []gutter.Option{
+						gutter.OptionAssetPath(builtAssetPath),
+						gutter.OptionICUDataPath(builtICUDataPath),
+						gutter.OptionWindowInitializer(setIcon),
+						gutter.OptionWindowDimension(config.ScreenWidth, config.ScreenHeight),
+						gutter.OptionWindowInitializer(setIcon),
+						gutter.OptionPixelRatio(1.9),
+						gutter.OptionVmArguments([]string{"--dart-non-checked-mode", "--observatory-port=50300"}),
+					}
+					err = gutter.Run(options...)
+					if err != nil {
+						handleError(err)
+					}
+				}
 			}
 		}
 	}
