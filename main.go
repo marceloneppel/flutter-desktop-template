@@ -110,6 +110,7 @@ func handleError(err error) {
 }
 
 func main() {
+	runtime.LockOSThread()
 	var (
 		config configuration
 		err    error
