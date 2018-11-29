@@ -33,7 +33,7 @@ func buildAssetPath(flutterProjectPath string, assetPath string) (string, error)
 	if flutterProjectPath == "" {
 		var (
 			path string
-			err error
+			err  error
 		)
 		path, err = os.Executable()
 		if err != nil {
@@ -48,7 +48,7 @@ func buildICUDataPath(flutterPath string, icuDataPath string) (string, error) {
 	if flutterPath == "" {
 		var (
 			path string
-			err error
+			err  error
 		)
 		path, err = os.Executable()
 		if err != nil {
@@ -169,7 +169,7 @@ func main() {
 						gutter.OptionWindowDimension(config.ScreenWidth, config.ScreenHeight),
 						gutter.OptionWindowInitializer(setIcon),
 						gutter.OptionPixelRatio(1.9),
-						gutter.OptionVmArguments([]string{"--dart-non-checked-mode", "--observatory-port=50300"}),
+						gutter.OptionVMArguments([]string{"--dart-non-checked-mode", "--observatory-port=50300"}),
 					}
 					err = gutter.Run(options...)
 					if err != nil {
